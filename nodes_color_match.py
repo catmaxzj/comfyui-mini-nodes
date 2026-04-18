@@ -8,12 +8,12 @@ class mini_color_match:
         return {
             "required": {
                 "target_image": ("IMAGE",),  # 目标图
-                "target_mask": ("MASK",),   # 目标图皮肤Mask
+                "target_mask": ("MASK",),   # 目标图Mask
                 "ref_image": ("IMAGE",),    # 参考图
-                "ref_mask": ("MASK",),      # 参考图皮肤Mask
+                "ref_mask": ("MASK",),      # 参考图Mask
                 "method": (["linear", "balanced_linear", "mean"], {
                     "default": "linear",
-                    "tooltip": "linear: 线性匹配色调最还原，但对比度变化较大；\nbalanced_linear: 锁定通道比例，防止偏色，对比度调节适中；\nmean: 仅对齐均值，完全保留原图对比度。"
+                    "tooltip": "linear: RGB独立缩放，色彩匹配度最强；\nbalanced_linear: RGB均匀缩放，兼顾对比度匹配；\nmean: 仅平移均值,保留原图对比度。"
                 }), 
                 "strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
             },
@@ -77,19 +77,19 @@ class mini_color_match:
             r_mean, r_std = np.mean(r_pixels, axis=0), np.std(r_pixels, axis=0)
 
             if method == "linear":
-                # 各通道独立缩放，对齐力最强
+                # RGB独立缩放，色彩匹配度最强
                 scale = r_std / (t_std + 1e-5)
                 corrected = (img - t_mean) * scale + r_mean
             
             elif method == "balanced_linear":
-                # 锁定通道比例，防止极端偏色
+                # RGB均匀缩放，兼顾对比度匹配
                 avg_t_std = np.mean(t_std)
                 avg_r_std = np.mean(r_std)
                 global_scale = np.clip(avg_r_std / (avg_t_std + 1e-5), 0.85, 1.15)
                 corrected = (img - t_mean) * global_scale + r_mean
             
             else: # mean
-                # 仅平移均值,保护对比度
+                # 仅平移均值,保留原图对比度
                 corrected = img + (r_mean - t_mean)
 
             # 应用强度并裁剪
