@@ -10,9 +10,9 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "mini_color_match": "mini_肤色颜色匹配",
-    "mini_latent_size": "mini_Latent尺寸调节",
-    "mini_image_save": "mini_图像保存"
+    "mini_color_match": "mini_color_match",
+    "mini_latent_size": "mini_latent_size",
+    "mini_image_save": "mini_image_save"
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
