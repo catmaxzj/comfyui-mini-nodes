@@ -14,9 +14,11 @@
 ### 🎨 Color Match Node
 Are you frustrated by color shifts introduced by image editing models? Standard color matching nodes often fall short. This node provides a precise solution.
 
-![Demo](screenshots/result-compare.png)
+![Demo](screenshots/edited-image.png)
 
 As shown, edited images suffer from both passive color shifts (from the model) and active color changes (due to content differences like clothing, pose, or perspective). Using the entire original image as a reference fails to accurately correct these shifts.
+
+![Demo](screenshots/result-compare.png)
 
 The `mini_color_match` node solves this by using an input mask to select only the unchanged pixels as a reference, resulting in a color correction that closely matches the original.
 
