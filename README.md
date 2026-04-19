@@ -1,7 +1,11 @@
-# ComfyUI Mini Nodes  [🇨🇳 中文说明](README_zh.md)
+# ComfyUI Mini Nodes
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![ComfyUI](https://img.shields.io/badge/ComfyUI-0.3.0%2B-green)](https://github.com/comfyanonymous/ComfyUI)
+(https://github.com/comfyanonymous/ComfyUI)
+
+
+[**🇨🇳 中文说明 | Chinese Readme**](README_zh.md)
 
 > A collection of simple custom nodes for ComfyUI, featuring color matching, latent size adjustment, and metadata-aware image saving.
 
