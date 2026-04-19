@@ -31,10 +31,12 @@
 ![示例](screenshots/style-color-grading.png)
 
 **选项说明:**
+
 - **方法 (Method)**: 
   - `linear`: "RGB独立缩放，色彩匹配度最强。"
   - `unbalanced_linear`: "RGB均匀缩放，兼顾对比度匹配。"
   - `mean`: "仅平移均值，保留原图对比度。"
+  - 
 - **强度 (Strength)**: 控制调色生效的强度，从 `0.0`（完全不起效）到 `1.0`（完全起效）。
 
 ---
@@ -45,6 +47,7 @@
 ![示例](screenshots/latent-size.png)
 
 **选项说明:**
+
 - **架构通道 (Architecture Channels)**: 根据所使用模型的类型进行选择，以避免“维度不匹配”(Dimension Mismatch) 或 “形状错误”(Shape Error)。
   - `16通道 (默认)`: 兼容大部分流行的模型 (FLUX.1, QWEN-IMAGE, WAN2.1/2.2, Z-IMAGE, SD3 等)。
   - `4通道`: 适用于较早的使用4通道的模型 (SD1, SD1.5, SDXL1.0 等)。
@@ -63,7 +66,6 @@
 2. 进入 `custom_nodes/` 文件夹。
 3. 运行以下命令：
    ```bash
-   git clone https://github.com/catmaxj/comfyui-mini-nodes.git
    git clone https://github.com/catmaxj/comfyui-mini-nodes.git
 4. 本项目无额外依赖。只需重启 ComfyUI，在节点搜索框中输入节点名称，然后将其拖入你的工作流即可。
 
