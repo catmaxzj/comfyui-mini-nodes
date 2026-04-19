@@ -3,6 +3,8 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![ComfyUI](https://img.shields.io/badge/ComfyUI-0.3.0%2B-green)](https://github.com/comfyanonymous/ComfyUI)
 
+
+[**EN 英文说明 | English Readme**](README.md)
 > 一组简洁的 ComfyUI 自定义节点，包含颜色匹配、潜在空间尺寸调整和元数据保存功能。
 
 ## 📦 功能特性
