@@ -8,22 +8,26 @@ class mini_color_match:
         return {
             "required": {
                 "target_image": ("IMAGE",),  # 目标图
-                "target_mask": ("MASK",),   # 目标图Mask
                 "ref_image": ("IMAGE",),    # 参考图
-                "ref_mask": ("MASK",),      # 参考图Mask
                 "method": (["linear", "balanced_linear", "mean"], {
                     "default": "linear",
                     "tooltip": "linear: RGB独立缩放，色彩匹配度最强；\nbalanced_linear: RGB均匀缩放，兼顾对比度匹配；\nmean: 仅平移均值,保留原图对比度。"
                 }), 
                 "strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
             },
+            # mask 可选输入
+            "optional": {
+                "target_mask": ("MASK",),
+                "ref_mask": ("MASK",),
+            }
         }
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "match"
     CATEGORY = "mini_nodes"
 
-    def match(self, target_image, target_mask, ref_image, ref_mask, method, strength):
+    # 修改点 2：在函数签名中为 mask 提供默认值 None
+    def match(self, target_image, ref_image, method, strength, target_mask=None, ref_mask=None):
         device = target_image.device
         
         # 1. 尺寸对齐逻辑：获取目标图尺寸
@@ -37,23 +41,33 @@ class mini_color_match:
         t_img_rgb = target_image[..., :3].cpu().numpy()
         r_img_rgb = ref_image[..., :3].cpu().numpy()
         
-        t_mask = target_mask.cpu().numpy()
-        r_mask = ref_mask.cpu().numpy()
+        # 修改点 3：处理目标遮罩逻辑
+        if target_mask is not None:
+            t_mask = target_mask.cpu().numpy()
+            if len(t_mask.shape) == 2: t_mask = t_mask[None, ..., None]
+            elif len(t_mask.shape) == 3: t_mask = t_mask[..., None]
+        else:
+            # 如果不传 mask，生成全图 1.0 的全白遮罩
+            t_mask = np.ones((B, H, W, 1), dtype=np.float32)
         
-        # 遮罩维度补全并自动缩放（如果需要）
-        if len(t_mask.shape) == 2: t_mask = t_mask[None, ..., None]
-        elif len(t_mask.shape) == 3: t_mask = t_mask[..., None]
-        if len(r_mask.shape) == 2: r_mask = r_mask[None, ..., None]
-        elif len(r_mask.shape) == 3: r_mask = r_mask[..., None]
+        # 修改点 4：处理参考遮罩逻辑
+        if ref_mask is not None:
+            r_mask = ref_mask.cpu().numpy()
+            if len(r_mask.shape) == 2: r_mask = r_mask[None, ..., None]
+            elif len(r_mask.shape) == 3: r_mask = r_mask[..., None]
 
-        if r_mask.shape[1] != H or r_mask.shape[2] != W:
-            from PIL import Image
-            r_mask_list = []
-            for m in r_mask:
-                pil_m = Image.fromarray((m.squeeze() * 255).astype(np.uint8), mode="L")
-                pil_m = pil_m.resize((W, H), resample=Image.Resampling.LANCZOS)
-                r_mask_list.append(np.array(pil_m).astype(np.float32) / 255.0)
-            r_mask = np.array(r_mask_list)[..., None]
+            # 参考图遮罩尺寸对齐
+            if r_mask.shape[1] != H or r_mask.shape[2] != W:
+                from PIL import Image
+                r_mask_list = []
+                for m in r_mask:
+                    pil_m = Image.fromarray((m.squeeze() * 255).astype(np.uint8), mode="L")
+                    pil_m = pil_m.resize((W, H), resample=Image.Resampling.LANCZOS)
+                    r_mask_list.append(np.array(pil_m).astype(np.float32) / 255.0)
+                r_mask = np.array(r_mask_list)[..., None]
+        else:
+            # 如果不传 mask，生成全图 1.0 的全白遮罩
+            r_mask = np.ones((B, H, W, 1), dtype=np.float32)
 
         # 3. 核心计算循环
         result = []
