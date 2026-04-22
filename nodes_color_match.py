@@ -7,18 +7,17 @@ class mini_color_match:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "target_image": ("IMAGE",),  # 目标图
-                "ref_image": ("IMAGE",),    # 参考图
+                "target_image": ("IMAGE",),  # 目标图 (必填)
+                "ref_image": ("IMAGE",),     # 参考图 (必填)
                 "method": (["linear", "balanced_linear", "mean"], {
                     "default": "linear",
                     "tooltip": "linear: RGB独立缩放，色彩匹配度最强；\nbalanced_linear: RGB均匀缩放，兼顾对比度匹配；\nmean: 仅平移均值,保留原图对比度。"
                 }), 
                 "strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
             },
-            # mask 可选输入
             "optional": {
-                "target_mask": ("MASK",),
-                "ref_mask": ("MASK",),
+                "target_mask": ("MASK",),    # 目标掩码 (可选)
+                "ref_mask": ("MASK",),       # 参考掩码 (可选)
             }
         }
 
@@ -26,37 +25,34 @@ class mini_color_match:
     FUNCTION = "match"
     CATEGORY = "mini_nodes"
 
-    # 修改点 2：在函数签名中为 mask 提供默认值 None
     def match(self, target_image, ref_image, method, strength, target_mask=None, ref_mask=None):
         device = target_image.device
         
-        # 1. 尺寸对齐逻辑：获取目标图尺寸
+        # 1. 尺寸对齐逻辑
         B, H, W, C = target_image.shape
         
-        # 自动对齐参考图（利用 utils.py）
+        # 利用 utils.py 自动对齐参考图尺寸
         if ref_image.shape[1] != H or ref_image.shape[2] != W:
             ref_image = resize_crop(ref_image, W, H, "中心裁剪", "lanczos")
         
-        # 2. 转换数据为 Numpy 处理
+        # 2. 转换数据为 Numpy
         t_img_rgb = target_image[..., :3].cpu().numpy()
         r_img_rgb = ref_image[..., :3].cpu().numpy()
         
-        # 修改点 3：处理目标遮罩逻辑
+        # 3. 处理遮罩逻辑 (如果不连遮罩则生成全白遮罩实现全图匹配)
         if target_mask is not None:
             t_mask = target_mask.cpu().numpy()
             if len(t_mask.shape) == 2: t_mask = t_mask[None, ..., None]
             elif len(t_mask.shape) == 3: t_mask = t_mask[..., None]
         else:
-            # 如果不传 mask，生成全图 1.0 的全白遮罩
             t_mask = np.ones((B, H, W, 1), dtype=np.float32)
         
-        # 修改点 4：处理参考遮罩逻辑
         if ref_mask is not None:
             r_mask = ref_mask.cpu().numpy()
             if len(r_mask.shape) == 2: r_mask = r_mask[None, ..., None]
             elif len(r_mask.shape) == 3: r_mask = r_mask[..., None]
 
-            # 参考图遮罩尺寸对齐
+            # 同步对齐参考遮罩尺寸
             if r_mask.shape[1] != H or r_mask.shape[2] != W:
                 from PIL import Image
                 r_mask_list = []
@@ -66,10 +62,9 @@ class mini_color_match:
                     r_mask_list.append(np.array(pil_m).astype(np.float32) / 255.0)
                 r_mask = np.array(r_mask_list)[..., None]
         else:
-            # 如果不传 mask，生成全图 1.0 的全白遮罩
             r_mask = np.ones((B, H, W, 1), dtype=np.float32)
 
-        # 3. 核心计算循环
+        # 4. 核心计算
         result = []
         for i in range(t_img_rgb.shape[0]):
             img = t_img_rgb[i]
@@ -77,39 +72,29 @@ class mini_color_match:
             ref = r_img_rgb[i] if i < r_img_rgb.shape[0] else r_img_rgb[0]
             rm = r_mask[i] if i < r_mask.shape[0] else r_mask[0]
 
-            # 采样 Mask 区域像素
             t_pixels = img[m[..., 0] > 0.5]
             r_pixels = ref[rm[..., 0] > 0.5]
 
-            # 防错处理
             if len(t_pixels) == 0 or len(r_pixels) == 0:
                 result.append(img)
                 continue
 
-            # 获取统计数据
             t_mean, t_std = np.mean(t_pixels, axis=0), np.std(t_pixels, axis=0)
             r_mean, r_std = np.mean(r_pixels, axis=0), np.std(r_pixels, axis=0)
 
             if method == "linear":
-                # RGB独立缩放，色彩匹配度最强
                 scale = r_std / (t_std + 1e-5)
                 corrected = (img - t_mean) * scale + r_mean
-            
             elif method == "balanced_linear":
-                # RGB均匀缩放，兼顾对比度匹配
                 avg_t_std = np.mean(t_std)
                 avg_r_std = np.mean(r_std)
                 global_scale = np.clip(avg_r_std / (avg_t_std + 1e-5), 0.85, 1.15)
                 corrected = (img - t_mean) * global_scale + r_mean
-            
-            else: # mean
-                # 仅平移均值,保留原图对比度
+            else:
                 corrected = img + (r_mean - t_mean)
 
-            # 应用强度并裁剪
             final = img + (corrected - img) * strength
             result.append(np.clip(final, 0, 1))
 
-        # 4. 最终输出强制为 RGB，不含 Alpha
         out_tensor = torch.from_numpy(np.array(result)).to(device)
         return (out_tensor,)
