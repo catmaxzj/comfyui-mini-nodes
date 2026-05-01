@@ -43,7 +43,7 @@ class mini_color_match:
                 "ref_image": ("IMAGE",),    
                 "method": (["Linear", "Mean", "MKL", "Wavelet"], {
                     "default": "Linear",
-                    "tooltip": "Linear: 适合遮罩校色,RGB独立缩放,色彩参考最直接\nMean: 适合遮罩校色,平移均值保留原图对比度,风格参考最稳定\nMKL: 适合无遮罩,通用全局映射,快捷校色最方便\nWavelet: 适合无遮罩,且相同构图矫正偏色,还原参考最自然"
+                    "tooltip": "Linear: 适合遮罩校色,RGB独立缩放,色彩参考最直接\nMean: 适合遮罩校色,平移均值保留原图对比度,风格参考最稳定\nMKL: 适合无遮罩,通用全局映射,快捷校色最方便\nWavelet: 适合相同构图矫正偏色,还原参考最自然"
                 }), 
                 "strength": ("FLOAT", {
                     "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
