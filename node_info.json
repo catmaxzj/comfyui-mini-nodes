@@ -1,0 +1,5 @@
+{
+    "version": "1.0.2",
+    "name": "Comfyui-mini-nodes",
+    "description": "A collection of simple custom nodes for ComfyUI, featuring color matching, latent size adjustment, and metadata-aware image saving."
+}
