@@ -1,6 +1,6 @@
 [project]
-name = "comfyui-mini-nodes"
-description = "A professional collection of custom nodes for ComfyUI, featuring high-precision color matching (MKL, Wavelet, HM), latent size adjustment, and metadata-aware image saving."
+name = "mini-nodes"
+description = "A collection of custom nodes for ComfyUI, featuring high-precision color matching (MKL, Wavelet, HM), latent size adjustment, and metadata-aware image saving."
 version = "1.0.2"
 license = "MIT" 
 authors = [
