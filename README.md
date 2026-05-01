@@ -11,7 +11,7 @@
 
 # UPDATE HISTORY #
 
-🚀 v1.02 Algorithm Update Notes
+🚀 v1.0.2 Algorithm Update Notes
 This update fully upgrades the color correction engine from basic linear shifting (Linear/Mean) to high-precision solutions based on industrial-grade statistics and frequency band decomposition. While improving fidelity, each algorithm has specific limitations in certain scenarios due to its underlying mathematical logic.
 
 Algorithm Advantages & Limitations
