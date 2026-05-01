@@ -1,23 +1,84 @@
 import torch
 import numpy as np
-from .utils import resize_crop
+import cv2
+
+# --- 核心算法支持函数 ---
+
+def apply_mkl(t_img, t_pixels, r_pixels):
+    mu_t = np.mean(t_pixels, axis=0)
+    mu_r = np.mean(r_pixels, axis=0)
+    
+    t_centered = t_pixels - mu_t
+    r_centered = r_pixels - mu_r
+    
+    cov_t = np.cov(t_centered, rowvar=False) + np.eye(3) * 1e-6
+    cov_r = np.cov(r_centered, rowvar=False) + np.eye(3) * 1e-6
+    
+    try:
+        evals_t, evecs_t = np.linalg.eigh(cov_t)
+        inv_sqrt_t = evecs_t @ np.diag(1.0 / np.sqrt(np.maximum(evals_t, 1e-6))) @ evecs_t.T
+        
+        evals_r, evecs_r = np.linalg.eigh(cov_r)
+        sqrt_r = evecs_r @ np.diag(np.sqrt(np.maximum(evals_r, 0))) @ evecs_r.T
+        
+        t = sqrt_r @ inv_sqrt_t
+        out = (t_img - mu_t) @ t.T + mu_r
+    except:
+        out = (t_img - mu_t) * (np.std(r_pixels, axis=0) / (np.std(t_pixels, axis=0) + 1e-6)) + mu_r
+        
+    return np.clip(out, 0, 1)
+
+def apply_wavelet_easy(t_img, r_img):
+    # 提取低频 (色彩层)
+    t_low = cv2.GaussianBlur(t_img, (0, 0), 15)
+    r_low = cv2.GaussianBlur(r_img, (0, 0), 15)
+    
+    # 计算低频层的全局差异并补偿
+    t_mean = np.mean(t_low, axis=(0, 1))
+    r_mean = np.mean(r_low, axis=(0, 1))
+    
+    # 线性偏移补偿
+    out = t_img + (r_low - t_low)
+    
+    return np.clip(out, 0, 1)
+
+def apply_hm(t_img, t_pixels, r_pixels):
+    out = np.zeros_like(t_img)
+    for i in range(3):
+        t_chan = t_img[..., i]
+        t_pix_chan = t_pixels[:, i]
+        r_pix_chan = r_pixels[:, i]
+        
+        t_sorted = np.sort(t_pix_chan)
+        r_sorted = np.sort(r_pix_chan)
+        
+        rank = np.searchsorted(t_sorted, t_chan)
+        rank = np.clip(rank, 0, len(t_sorted) - 1)
+        percentile = rank / len(t_sorted)
+        
+        out[..., i] = np.interp(percentile, np.linspace(0, 1, len(r_sorted)), r_sorted)
+    return np.clip(out, 0, 1)
+
 
 class mini_color_match:
     @classmethod
     def INPUT_TYPES(s):
         return {
             "required": {
-                "target_image": ("IMAGE",),  # 目标图 (必填)
-                "ref_image": ("IMAGE",),     # 参考图 (必填)
-                "method": (["linear", "balanced_linear", "mean"], {
-                    "default": "linear",
-                    "tooltip": "linear: RGB独立缩放，色彩匹配度最强；\nbalanced_linear: RGB均匀缩放，兼顾对比度匹配；\nmean: 仅平移均值,保留原图对比度。"
+                "target_image": ("IMAGE",), 
+                "ref_image": ("IMAGE",),    
+                "method": (["MKL", "Wavelet", "HM"], {
+                    "default": "MKL",
+                    "tooltip": "MKL: 全局线性映射，适用大部分情况。\nWavelet: 适合相同构图间的色彩矫正，效果最佳。\nHM: 强制分布对齐,适合色差较大的矫正。"
                 }), 
-                "strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "strength": ("FLOAT", {
+                    "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                    "tooltip": "节点总体强度控制。"
+                }),
             },
             "optional": {
-                "target_mask": ("MASK",),    # 目标掩码 (可选)
-                "ref_mask": ("MASK",),       # 参考掩码 (可选)
+                "target_mask": ("MASK",),  
+                "ref_mask": ("MASK",),      
             }
         }
 
@@ -27,61 +88,38 @@ class mini_color_match:
 
     def match(self, target_image, ref_image, method, strength, target_mask=None, ref_mask=None):
         device = target_image.device
-        B, H, W, C = target_image.shape
-        
-        # --- 步骤 1：在各自的原始空间提取像素 ---
-        t_img_rgb = target_image[..., :3].cpu().numpy()
-        r_img_rgb = ref_image[..., :3].cpu().numpy() # 使用参考图原始尺寸
+        t_img_rgb = target_image.cpu().numpy()
+        r_img_rgb = ref_image.cpu().numpy() 
 
-        # 处理目标遮罩
         if target_mask is not None:
             t_mask = target_mask.cpu().numpy()
             if len(t_mask.shape) == 2: t_mask = t_mask[None, ..., None]
             elif len(t_mask.shape) == 3: t_mask = t_mask[..., None]
         else:
-            t_mask = np.ones((B, H, W, 1), dtype=np.float32)
+            t_mask = np.ones((t_img_rgb.shape[0], t_img_rgb.shape[1], t_img_rgb.shape[2], 1), dtype=np.float32)
 
-        # 处理参考遮罩
-        if ref_mask is not None:
-            r_mask = ref_mask.cpu().numpy()
-            if len(r_mask.shape) == 2: r_mask = r_mask[None, ..., None]
-            elif len(r_mask.shape) == 3: r_mask = r_mask[..., None]
-        else:
-            r_mask = np.ones((ref_image.shape[0], ref_image.shape[1], ref_image.shape[2], 1), dtype=np.float32)
-
-        # --- 步骤 2：计算统计数据（独立采样） ---
         result = []
         for i in range(t_img_rgb.shape[0]):
             img = t_img_rgb[i]
             m = t_mask[i] if i < t_mask.shape[0] else t_mask[0]
-            
-            # 参考图和参考遮罩使用自己的索引
             ref = r_img_rgb[i] if i < r_img_rgb.shape[0] else r_img_rgb[0]
-            rm = r_mask[i] if i < r_mask.shape[0] else r_mask[0]
+            
+            t_pixels = img[m[..., 0] > 0.1]
+            r_pixels = ref.reshape(-1, 3) 
 
-            # 降低采样阈值以包含羽化区域，且在各自空间采样
-            t_pixels = img[m[..., 0] > 0.1] 
-            r_pixels = ref[rm[..., 0] > 0.1]
-
-            if len(t_pixels) == 0 or len(r_pixels) == 0:
+            if len(t_pixels) == 0:
                 result.append(img)
                 continue
 
-            t_mean, t_std = np.mean(t_pixels, axis=0), np.std(t_pixels, axis=0)
-            r_mean, r_std = np.mean(r_pixels, axis=0), np.std(r_pixels, axis=0)
-
-            # --- 步骤 3：应用校色
-            if method == "linear":
-                scale = r_std / (t_std + 1e-5)
-                corrected = (img - t_mean) * scale + r_mean
-            elif method == "balanced_linear":
-                avg_t_std = np.mean(t_std)
-                avg_r_std = np.mean(r_std)
-                # 从 0.85-1.15 改为更激进的范围以应对明显色差
-                global_scale = np.clip(avg_r_std / (avg_t_std + 1e-5), 0.5, 2.0)
-                corrected = (img - t_mean) * global_scale + r_mean
+            if method == "MKL":
+                corrected = apply_mkl(img, t_pixels, r_pixels)
+            elif method == "Wavelet":
+                ref_resized = cv2.resize(ref, (img.shape[1], img.shape[0]))
+                corrected = apply_wavelet_easy(img, ref_resized)
+            elif method == "HM":
+                corrected = apply_hm(img, t_pixels, r_pixels)
             else:
-                corrected = img + (r_mean - t_mean)
+                corrected = np.copy(img)
 
             final = img + (corrected - img) * strength
             result.append(np.clip(final, 0, 1))
