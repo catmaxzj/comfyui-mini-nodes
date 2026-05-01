@@ -1,7 +1,7 @@
 [project]
 name = "mini-nodes"
 description = "A collection of custom nodes for ComfyUI, featuring high-precision color matching (MKL, Wavelet, HM), latent size adjustment, and metadata-aware image saving."
-version = "1.0.2"
+version = "1.0.2-post"
 license = "MIT" 
 authors = [
     { name = "catmaxzj", email = "maxzjsh@gmail.com" }
