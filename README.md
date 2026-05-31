@@ -11,6 +11,14 @@
 
 # UPDATE HISTORY #
 
+v1.0.3 Update:
+Presets Update: Comprehensive updates and optimizations to the presets system for better usability.
+Node Renaming: The Latent Size node has been renamed to Resolution for better semantic clarity.
+Note
+The functionality remains identical. If you are loading an old workflow, simply replace the missing Latent Size node with the new Resolution node.
+
+----------------------------------------------------------------------------------------------------------------------------------
+
 v1.0.2 Update Summary:
 An essential hotfix for v1.0.2 to address algorithm limitations in specific workflows.
 
