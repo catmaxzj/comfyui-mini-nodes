@@ -87,9 +87,17 @@ class mini_color_match:
             ref = r_img_rgb[i] if i < r_img_rgb.shape[0] else r_img_rgb[0]
             rm = r_mask[i] if i < r_mask.shape[0] else r_mask[0]
             
-            # 在各自原始空间进行独立采样
+            # 💡 新增：检查并对齐目标遮罩 (target_mask) 的分辨率
+            if m.shape[0] != img.shape[0] or m.shape[1] != img.shape[1]:
+                m = cv2.resize(m[..., 0], (img.shape[1], img.shape[0]), interpolation=cv2.INTER_LINEAR)[..., None]
+                
+            # 💡 新增：检查并对齐参考遮罩 (ref_mask) 的分辨率
+            if rm.shape[0] != ref.shape[0] or rm.shape[1] != ref.shape[1]:
+                rm = cv2.resize(rm[..., 0], (ref.shape[1], ref.shape[0]), interpolation=cv2.INTER_LINEAR)[..., None]
+            
+            # 在各自原始空间进行独立采样（此时尺寸已绝对安全）
             t_pixels = img[m[..., 0] > 0.1]
-            r_pixels = ref[rm[..., 0] > 0.1] 
+            r_pixels = ref[rm[..., 0] > 0.1]
 
             if len(t_pixels) == 0 or len(r_pixels) == 0:
                 result.append(img)
