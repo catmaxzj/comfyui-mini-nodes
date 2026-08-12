@@ -11,6 +11,11 @@
 
 # UPDATE HISTORY #
 
+v1.0.4 Update:
+Fix high resolution shape mismatch and add nodes_video_color_match.
+
+---------------------------------------------------------------------------------------------------------------------------------
+
 v1.0.3 Update:
 Presets Update: Comprehensive updates and optimizations to the presets system for better usability.
 Node Renaming: The Latent Size node has been renamed to Resolution for better semantic clarity.
